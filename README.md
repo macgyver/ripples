@@ -33,3 +33,9 @@ npm run build
 ```sh
 npm run lint
 ```
+
+## depoy to github pages
+
+```
+./deploy.sh
+```

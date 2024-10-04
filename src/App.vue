@@ -7,9 +7,6 @@ let middleEl = useTemplateRef('middle')
 let innerEl = useTemplateRef('inner')
 
 let wordsEls = useTemplateRef('words-els')
-onMounted(() => {
-  console.debug('**words els', wordsEls.value) // huh? whty is tis null
-})
 
 function findRipple(words) {
   switch (words.length) {
@@ -76,7 +73,6 @@ function toggleWord(word) {
 }
 
 function throwWord(e) {
-  console.debug('**throw', selectedWord.value, e)
   if (!selectedWord.value) return
 
   let selectedRipple = e.currentTarget
@@ -88,7 +84,6 @@ function throwWord(e) {
     // if (
   } else {
     incorrectNum.value += 1
-    console.debug(wordsEls.value)
   }
   selectedWord.value.nope = true
   setTimeout(() => {

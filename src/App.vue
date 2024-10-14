@@ -1,10 +1,10 @@
 <script setup>
-import { ref, computed, useTemplateRef, onMounted } from 'vue'
+import { ref, reactive, computed, useTemplateRef, onMounted } from 'vue'
 import ripples from './ripples.js'
 
-let outerEl = useTemplateRef('outer')
-let middleEl = useTemplateRef('middle')
-let innerEl = useTemplateRef('inner')
+let outerEl = useTemplateRef('outer-el')
+let middleEl = useTemplateRef('middle-el')
+let innerEl = useTemplateRef('inner-el')
 
 let wordsEls = useTemplateRef('words-els')
 
@@ -41,14 +41,14 @@ let gencoords = (function* () {
 })()
 
 let [outer, middle, inner, pebble] = ripples
-let words = [
+let words = reactive([
   {
-    // the pebble is "placed" correctly because it's target is the "hole" outside the ripples where all words start
+    // the pebble is already "placed" correctly because it's target is the "hole" outside the ripples where all words start
     placed: true,
     txt: pebble,
     ...gencoords.next().value
   }
-]
+])
 let categories = []
 for (let ripple of [outer, inner, middle]) {
   let [category, ...ws] = ripple
@@ -69,16 +69,23 @@ let selectedWord = ref(null)
 let incorrectNum = ref(0)
 
 function toggleWord(word) {
-  selectedWord.value = word
+  if (selectedWord.value?.txt === word.txt) selectedWord.value = null
+  else selectedWord.value = word
+}
+
+function placeWord(e) {
+  if (!selectedWord.value) return
+  selectedWord.value.x = (e.clientX / window.innerWidth) * 100
+  selectedWord.value.y = (e.clientY / window.innerHeight) * 100
 }
 
 function throwWord(e) {
+  e.stopPropagation()
   if (!selectedWord.value) return
 
   let selectedRipple = e.currentTarget
   if (selectedWord.value.targetEl === selectedRipple) {
-    selectedWord.value.x = (e.clientX / window.innerWidth) * 100
-    selectedWord.value.y = (e.clientY / window.innerHeight) * 100
+    placeWord(e)
 
     selectedWord.value.placed = true
     // if (
@@ -94,16 +101,29 @@ function throwWord(e) {
 </script>
 
 <template>
-  <main class="board">
-    <!-- <div class="ripple-container" ref="outer"> -->
-    <div tabindex="0" class="outer ripple" ref="outer" @click="throwWord"></div>
-    <!-- </div> -->
-    <!-- <div class="rippple-container" ref="middle"> -->
-    <div tabindex="0" class="middle ripple" ref="middle" @click="throwWord"></div>
-    <!-- </div> -->
-    <!-- <div class="rippple-container" ref="inner"> -->
-    <div tabindex="0" class="inner ripple" ref="inner" @click="throwWord"></div>
-    <!-- </div> -->
+  <main class="board" @click="placeWord">
+    <div
+      tabindex="0"
+      class="outer ripple"
+      ref="outer-el"
+      @click="throwWord"
+      aria-label="outer ripple"
+    ></div>
+    <div
+      tabindex="0"
+      class="middle ripple"
+      ref="middle-el"
+      @click="throwWord"
+      aria-label="middle ripple"
+    ></div>
+    <div
+      tabindex="0"
+      class="inner ripple"
+      ref="inner-el"
+      @click="throwWord"
+      @Keyup.enter="todo"
+      aria-label="inner ripple"
+    ></div>
     <button
       class="word"
       v-for="(word, i) in words"
@@ -111,7 +131,7 @@ function throwWord(e) {
       ref="words-els"
       :style="{ top: `${word.y}%`, left: `${word.x}%` }"
       :class="{ selected: selectedWord?.txt === word.txt, nope: word.nope }"
-      @click="toggleWord(word)"
+      @click.stop="toggleWord(word)"
       :title="`${i}. ${word.theta}°, (${word.x}, ${word.y}`"
       :data-theta="word.theta"
     >

@@ -6,7 +6,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    filter: invert(1);
+    --bg-color: black;
+    --fg-color: white;
   }
 }
 
@@ -22,8 +23,8 @@ body {
   display: flex;
   place-content: center;
   min-height: 100vh;
-  color: var(--color-text);
-  background: var(--color-background);
+  color: var(--fg-color);
+  background: var(--bg-color);
   transition:
     color 0.5s,
     background-color 0.5s;

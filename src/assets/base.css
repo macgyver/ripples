@@ -2,12 +2,14 @@
 :root {
   --bg-color: white;
   --fg-color: black;
+  --accent-color: midnightblue;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bg-color: black;
     --fg-color: white;
+    --accent-color: hsl(193.3, 100%, 55%);
   }
 }
 
@@ -20,9 +22,6 @@
 }
 
 body {
-  display: flex;
-  place-content: center;
-  min-height: 100vh;
   color: var(--fg-color);
   background: var(--bg-color);
   transition:
@@ -46,4 +45,16 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  transition: text-decoration-thickness 0.5s;
+  text-decoration: underline var(--accent-color);
+
+  &.active,
+  &:hover,
+  &:focus {
+    text-decoration-thickness: 3px;
+  }
 }

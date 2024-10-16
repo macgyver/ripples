@@ -1,90 +1,102 @@
 <script setup>
-import { toRaw, ref, reactive, computed, useTemplateRef, onMounted } from 'vue'
+import { nextTick, watch, toRaw, ref, computed, useTemplateRef } from 'vue'
 import ripples from './ripples.js'
+
+function ucfirst(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+function digitToWord(digit) {
+  switch (digit) {
+    case 0:
+      return 'zero'
+    case 1:
+      return 'one'
+    case 2:
+      return 'two'
+    case 3:
+      return 'three'
+    case 4:
+      return 'four'
+    case 5:
+      return 'five'
+    case 6:
+      return 'six'
+    case 7:
+      return 'seven'
+    case 8:
+      return 'eight'
+    case 9:
+      return 'nine'
+    default:
+      throw new Error('digitToWord: digit must be between 0 and 9')
+  }
+}
+
+let url = new URL(location.href)
+let activeDay = ref(Number.parseInt(url.searchParams.get('day')) || 1)
+
+let today = computed(() => ripples[activeDay.value - 1])
+let words = computed(() => today.value.words)
+let categories = computed(() => today.value.categories)
+let incorrectNum = computed(() => today.value.errors)
+
+// for help debugging, i can't keep track of all the answers  in my head
+watch(
+  words,
+  () => {
+    let groups = toRaw(words.value).reduce((memo, curr) => {
+      memo[curr.category] ??= []
+      memo[curr.category].push(curr.txt)
+      return memo
+    }, {})
+    let entries = Object.entries(groups).sort(([cat1, words1], [cat2, words2]) => {
+      if (cat1 === 'outlier') return 1
+      if (cat2 === 'outlier') return -1
+      return words2.length - words1.length
+    })
+    for (let [key, value] of entries) {
+      console.debug(`${key}:`, value)
+    }
+  },
+  { immediate: true },
+)
+
+function goToDay(day) {
+  activeDay.value = day
+  // any other app state to reset?
+}
+
+window.addEventListener('popstate', (e) => {
+  goToDay(e.state.day)
+})
+
+function go(day) {
+  goToDay(day)
+  history.pushState({ day }, '', `?day=${day}`)
+}
 
 let outerEl = useTemplateRef('outer-el')
 let middleEl = useTemplateRef('middle-el')
 let innerEl = useTemplateRef('inner-el')
+let outlierEl = useTemplateRef('outlier-el')
 
 let wordsEls = useTemplateRef('words-els')
 let boardEl = useTemplateRef('board-el')
 
-function findRipple(words) {
-  switch (words.length) {
-    case 3:
-      return outerEl
-    case 2:
-      return middleEl
-    case 1:
-      return innerEl
+function findTargetElement(word) {
+  switch (word.ripple) {
+    case 'inner':
+      return innerEl.value
+    case 'middle':
+      return middleEl.value
+    case 'outer':
+      return outerEl.value
+    default:
+      return outlierEl.value
   }
-}
-// Day Five
-// R = lose, seem, took
-// Q = does, spat
-// P = still
-// O = and
-
-let gencoords = (function* () {
-  let theta = 0
-  let buffer = 10
-  while (true) {
-    let radians = (theta * Math.PI) / 180
-    console.debug('yield theta', theta)
-    yield {
-      theta,
-      // giving 5% of buffer so they all fit inside the viewport... just a guess
-      x: Math.min(100 - buffer, Math.max(buffer, (Math.cos(radians) + 1) * 50)),
-      y: Math.min(100 - buffer, Math.max(buffer, (Math.sin(radians) + 1) * 50))
-    }
-    // leave room for the instructions in the bottom right
-    do {
-      theta += 45
-    } while (theta % 360 > 0 && theta % 360 < 90)
-  }
-})()
-
-let [outer, middle, inner, pebble] = ripples
-let words = reactive([
-  {
-    // the pebble is already "placed" correctly because it's target is the space outside the ripples, where all words start
-    placed: true,
-    txt: pebble
-  }
-])
-let categories = []
-for (let ripple of [outer, middle, inner]) {
-  let [category, ...ws] = ripple
-  categories[ws.length] = category
-  let targetEl = findRipple(ws)
-  for (let w of ws) {
-    words.push({
-      placed: false,
-      txt: w,
-      category,
-      targetEl
-    })
-  }
-}
-
-shuffle(words)
-for (let i in words) {
-  Object.assign(words[i], gencoords.next().value)
-}
-
-console.debug(words.map((w) => `${w.txt} ${w.theta}`))
-
-// fisher-yates shuffle provided by co-pilot
-function shuffle(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[array[i], array[j]] = [array[j], array[i]]
-  }
-  return array
 }
 
 let selectedWord = ref(null)
-let incorrectNum = ref(0)
 
 function toggleWord(word) {
   if (selectedWord.value?.txt === word.txt) selectedWord.value = null
@@ -94,26 +106,35 @@ function toggleWord(word) {
 function placeWord(e) {
   if (!selectedWord.value) return
   let rect = boardEl.value.getBoundingClientRect()
-  console.log(rect, e)
   selectedWord.value.x = ((e.clientX - rect.left) / rect.width) * 100
   selectedWord.value.y = ((e.clientY - rect.top) / rect.height) * 100
 }
 
+let boardComplete = ref(false)
 function tossWord(e) {
-  console.debug('**drop', toRaw(selectedWord.value), e)
   if (!selectedWord.value) return
 
   let selectedRipple = e.target
-  console.debug('selected', selectedRipple, 'target', selectedWord.value.targetEl)
+  let targetRipple = findTargetElement(selectedWord.value)
+  console.debug('**toss', toRaw(selectedWord.value), e, selectedRipple, targetRipple)
 
-  if (selectedRipple.matches('main.board')) {
+  // i was slightly pleasantly surprised you can compare elements like this
+  if (selectedRipple === boardEl.value) {
     // place word but do not process any game logic, the word is just being arranged outside the ripples
     placeWord(e)
-  } else if (selectedWord.value.targetEl === selectedRipple) {
+  } else if (targetRipple === selectedRipple) {
     placeWord(e)
     selectedWord.value.placed = true
+    selectedWord.value = null
+    if (words.value.every((word) => word.placed)) {
+      setTimeout(async function () {
+        boardComplete.value = true
+        await nextTick()
+        alert(`You won with ${incorrectNum.value} mistakes! 🎉`)
+      }, 300) // the timing of the animation, todo should use transition end event intstead..
+    }
   } else {
-    incorrectNum.value += 1
+    ripples[activeDay.value - 1].errors += 1
     selectedWord.value.nope = true
     setTimeout(() => {
       selectedWord.value.nope = false
@@ -122,97 +143,124 @@ function tossWord(e) {
   }
 }
 
-let dragoverRipple = ref(null)
-
-function debug(e) {
-  console.debug('**debug', e, dragoverRipple.value)
-}
+let dragoverCategory = ref(null)
 </script>
 
 <template>
-  <main
-    class="board"
-    @click="placeWord"
-    ref="board-el"
-    @drop="tossWord"
-    @dragover.prevent
-    @dragenter.prevent="dragoverRipple = null"
-  >
-    <div
-      tabindex="0"
-      class="outer ripple"
-      :class="{ dragover: dragoverRipple === 'outer' }"
-      ref="outer-el"
-      @click.stop="tossWord"
-      @drop="tossWord"
+  <div class="container">
+    <span class="days">
+      <a
+        v-for="(data, i) in ripples"
+        :key="i"
+        tabindex="0"
+        :href="`?day=${i + 1}`"
+        :class="{ day: true, active: activeDay === i + 1 }"
+        @click.prevent="go(i + 1)"
+      >
+        Day {{ ucfirst(digitToWord(i + 1)) }}
+      </a>
+    </span>
+    <main
+      class="board"
+      :class="{ complete: boardComplete }"
+      @click="placeWord"
+      ref="board-el"
+      @drop.stop="tossWord"
       @dragover.prevent
-      @dragenter.stop="dragoverRipple = 'outer'"
-      aria-label="outer ripple"
-    ></div>
-    <div
-      tabindex="0"
-      class="middle ripple"
-      :class="{ dragover: dragoverRipple === 'middle' }"
-      ref="middle-el"
-      @click.stop="tossWord"
-      @drop="tossWord"
-      @dragover.prevent
-      @dragenter.stop="dragoverRipple = 'middle'"
-      aria-label="middle ripple"
-    ></div>
-    <div
-      tabindex="0"
-      class="inner ripple"
-      :class="{ dragover: dragoverRipple === 'inner' }"
-      ref="inner-el"
-      @click.stop="tossWord"
-      @drop="tossWord"
-      @dragover.prevent
-      @dragenter.stop="dragoverRipple = 'inner'"
-      @Keyup.enter="todo"
-      aria-label="inner ripple"
-    ></div>
-    <button
-      class="word"
-      v-for="(word, i) in words"
-      :key="word.txt"
-      ref="words-els"
-      :style="{ top: `${word.y}%`, left: `${word.x}%` }"
-      :class="{ selected: selectedWord?.txt === word.txt, nope: word.nope }"
-      @click.stop="toggleWord(word)"
-      :title="`${i}. ${word.theta}°, (${word.x}, ${word.y}`"
-      :data-theta="word.theta"
-      draggable="true"
-      @dragstart="selectedWord = word"
-      @dragend="dragoverRipple = null"
+      @dragenter.prevent="dragoverCategory = null"
     >
-      {{ word.txt }}
-    </button>
-  </main>
-  <div class="legend">
-    <ol reversed>
-      <li>
-        (outer circle, 3 words)
-        <span class="hint" v-if="incorrectNum > 2">{{ categories[3] }}</span>
-      </li>
-      <li>
-        (middle circle 2 words)
-        <span class="hint" v-if="incorrectNum > 0">{{ categories[2] }}</span>
-      </li>
-      <li>
-        (inner circle, 1 word)
-        <span class="hint" v-if="incorrectNum > 1">{{ categories[1] }}</span>
-      </li>
-    </ol>
+      <div
+        tabindex="0"
+        class="outer ripple"
+        :class="{ dragover: dragoverCategory === 'outer' }"
+        ref="outer-el"
+        @click.stop="tossWord"
+        @drop.stop="tossWord"
+        @dragover.prevent
+        @dragenter.stop="dragoverCategory = 'outer'"
+        aria-label="outer ripple"
+      ></div>
+      <div
+        tabindex="0"
+        class="middle ripple"
+        :class="{ dragover: dragoverCategory === 'middle' }"
+        ref="middle-el"
+        @click.stop="tossWord"
+        @drop.stop="tossWord"
+        @dragover.prevent
+        @dragenter.stop="dragoverCategory = 'middle'"
+        aria-label="middle ripple"
+      ></div>
+      <div
+        tabindex="0"
+        class="inner ripple"
+        :class="{ dragover: dragoverCategory === 'inner' }"
+        ref="inner-el"
+        @click.stop="tossWord"
+        @drop.stop="tossWord"
+        @dragover.prevent
+        @dragenter.stop="dragoverCategory = 'inner'"
+        @Keyup.enter="todo"
+        aria-label="inner ripple"
+      ></div>
+      <button
+        class="word"
+        v-for="(word, i) in words"
+        :key="word.txt"
+        ref="words-els"
+        :style="{ top: `${word.y}%`, left: `${word.x}%` }"
+        :class="{ selected: selectedWord?.txt === word.txt, nope: word.nope }"
+        @click.stop="toggleWord(word)"
+        :title="`${i}. ${word.theta}°, (${word.x}, ${word.y}`"
+        :data-theta="word.theta"
+        draggable="true"
+        @dragstart="selectedWord = word"
+        @dragend="dragoverCategory = null"
+        :inert="word.placed"
+      >
+        {{ word.txt }}
+      </button>
+      <div class="legend">
+        <div
+          tabindex="0"
+          class="outlier"
+          :class="{ dragover: dragoverCategory === 'outlier' }"
+          ref="outlier-el"
+          @click.stop="tossWord"
+          @drop.stop="tossWord"
+          @dragover.prevent
+          @dragenter.stop="dragoverCategory = 'outlier'"
+          @keyup.enter="todo"
+          aria-label="outlier area"
+        ></div>
+        <ol reversed>
+          <li>
+            (outer circle, 3 words)
+            <span class="hint" v-if="incorrectNum > 2">{{ categories[3] }}</span>
+          </li>
+          <li>
+            (middle circle 2 words)
+            <span class="hint" v-if="incorrectNum > 0">{{ categories[2] }}</span>
+          </li>
+          <li>
+            (inner circle, 1 word)
+            <span class="hint" v-if="incorrectNum > 1">{{ categories[1] }}</span>
+          </li>
+        </ol>
+      </div>
+    </main>
 
     <details class="instructions">
       <summary>
         <strong>instructions</strong>
       </summary>
-      Each concentric circle is an increasingly specific category. Drag each word to the most
-      general category it fits in. Only one word does not fit into any category. If you make a
-      mistake, a category will be revealed. See how few mistakes you can make before you correctly
-      categorize each word!
+      Each concentric circle represents a (hidden) category. One of the words fits into all three
+      categories and should be placed in the innermost circle. Two of the words fit into two of the
+      categories only and should be placed in the middle circle. Three more words fit only into one
+      category and should be placed in the outermost circle. Only one word does not fit into any
+      category; it should be placed in the outlier box. If you make a placement mistake, a category
+      title will be revealed. See how few mistakes you can make before you correctly categorize each
+      word!k
     </details>
   </div>
 </template>
@@ -220,7 +268,25 @@ function debug(e) {
 <style lang="scss" scoped>
 @use 'sass:math';
 
+.days {
+  margin: 0.4em;
+  display: flex;
+  gap: 1em;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  place-content: center;
+  min-height: 100vh;
+}
+
 .board {
+  margin: auto;
   // background: lightgray;
   position: relative;
   // display: flex;
@@ -247,6 +313,24 @@ function debug(e) {
 //   pointer-events: none;
 // }
 
+@mixin placement {
+  border: 0.3em solid var(--fg-color);
+  border-radius: 50%;
+  aspect-ratio: 1;
+  background: var(--bg-color);
+
+  .board:has(.word.selected) &:is(:hover, :focus-visible) {
+    cursor: pointer;
+    outline: none;
+    background: var(--active-bg-color);
+  }
+
+  &.dragover,
+  .board.complete & {
+    background: var(--active-bg-color);
+  }
+}
+
 .ripple {
   // pointer-events: all;
   top: min(50vh, 50vw);
@@ -255,25 +339,9 @@ function debug(e) {
   position: absolute;
   place-self: center;
   // position: absolute;
-  border: 0.3em solid var(--fg-color);
-  border-radius: 50%;
   width: min(60vh, 60vw);
-  aspect-ratio: 1;
-  background: var(--bg-color);
   // translate: 22% 0;
-
-  #app:has(.word.selected) & {
-    &:hover,
-    &:focus-visible {
-      cursor: pointer;
-      outline: none;
-      background: var(--active-bg-color);
-    }
-  }
-
-  &.dragover {
-    background: var(--active-bg-color);
-  }
+  @include placement;
 
   &.outer {
     --active-bg-color: hsl(193.3, 100%, 55%);
@@ -282,7 +350,6 @@ function debug(e) {
     }
   }
 
-  // todo: should be like an archery target, do some like. geometry or trig or whatever
   &.middle {
     width: min(35vw, 35vh);
     // translate: 50% 0;
@@ -302,8 +369,25 @@ function debug(e) {
   }
 }
 
+.outlier {
+  @include placement;
+  border-radius: 15%;
+  position: absolute;
+  bottom: calc(100% + 2vh);
+  right: 0;
+  place-self: center;
+  width: min(15vh, 15vw);
+
+  --active-bg-color: orange;
+  @media (prefers-color-scheme: dark) {
+    --active-bg-color: darkorange;
+  }
+}
+
 .word {
+  cursor: grab;
   border: 1px solid var(--fg-color);
+  border-radius: 2px;
   background: var(--bg-color);
   color: var(--fg-color);
   padding: 0.5em 0.7em;
@@ -312,11 +396,22 @@ function debug(e) {
   backface-visibility: hidden;
   transform-origin: 50% 50%;
   position: absolute;
+  z-index: 1;
   transition: all 0.3s;
   transform: translate(-50%, -50%); // to center them on the click point
   font-size: 1.5em;
 
+  &:active {
+    cursor: grabbing;
+  }
+
+  &[inert] {
+    cursor: pointer;
+    border-color: #999; // a bit more of a hint that it's not draggable would be nicer
+  }
+
   &.selected {
+    cursor: grabbing;
     background: yellow;
     @media (prefers-color-scheme: dark) {
       background-color: #3f3f2c;
@@ -357,6 +452,18 @@ function debug(e) {
   padding: 1em;
   position: absolute;
   bottom: 2%;
+  right: 2%;
+  border: 2px solid gray;
+  max-width: 40%;
+  background: var(--bg-color);
+  box-shadow: 0 4px 10px rgba(0, 0, 10, 0.5);
+}
+
+.instructions {
+  padding: 1em;
+  position: absolute;
+  z-index: 1;
+  top: 2%;
   right: 2%;
   border: 2px solid gray;
   max-width: 35%;

@@ -34,8 +34,12 @@ npm run build
 npm run lint
 ```
 
-## depoy to github pages
+## deploy to github pages
 
 ```
 ./deploy.sh
 ```
+
+## todo
+
+- [] unhighlight ripples when switching between days

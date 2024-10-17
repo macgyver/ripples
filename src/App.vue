@@ -111,7 +111,8 @@ function placeWord(e) {
   selectedWord.value.y = ((e.clientY - rect.top) / rect.height) * 100
 }
 
-let boardComplete = ref(false)
+let boardComplete = computed(() => words.value.every((word) => word.placed))
+
 function tossWord(e) {
   if (!selectedWord.value) return
 
@@ -126,14 +127,14 @@ function tossWord(e) {
   } else if (targetRipple === selectedRipple) {
     placeWord(e)
     selectedWord.value.placed = true
-    selectedWord.value = null
-    if (words.value.every((word) => word.placed)) {
-      setTimeout(async function () {
-        boardComplete.value = true
+    setTimeout(async function () {
+      selectedWord.value = null
+      dragoverCategory.value = null
+      if (boardComplete.value) {
         await nextTick()
         alert(`You won with ${incorrectNum.value} mistakes! 🎉`)
-      }, 300) // the timing of the animation, todo should use transition end event intstead..
-    }
+      }
+    }, 300) // the timing of the animation, todo should use transition end event intstead..
   } else {
     ripples[activeDay.value - 1].errors += 1
     selectedWord.value.nope = true
@@ -168,7 +169,7 @@ let dragoverCategory = ref(null)
       ref="board-el"
       @drop.stop="tossWord"
       @dragover.prevent
-      @dragenter.stop="dragoverCategory = null"
+      @dragenter.prevent="dragoverCategory = null"
     >
       <div
         tabindex="0"
@@ -179,7 +180,6 @@ let dragoverCategory = ref(null)
         @drop.stop="tossWord"
         @dragover.prevent
         @dragenter.stop="dragoverCategory = 'outer'"
-        @dragleave="dragoverCategory = null"
         aria-label="outer ripple"
       ></div>
       <div
@@ -190,7 +190,7 @@ let dragoverCategory = ref(null)
         @click.stop="tossWord"
         @drop.stop="tossWord"
         @dragover.prevent
-        @dragenter.prevent.stop="dragoverCategory = 'middle'"
+        @dragenter.stop="dragoverCategory = 'middle'"
         aria-label="middle ripple"
       ></div>
       <div
@@ -201,7 +201,7 @@ let dragoverCategory = ref(null)
         @click.stop="tossWord"
         @drop.stop="tossWord"
         @dragover.prevent
-        @dragenter.prevent.stop="dragoverCategory = 'inner'"
+        @dragenter.stop="dragoverCategory = 'inner'"
         @x-keyup.enter="todo"
         aria-label="inner ripple"
       ></div>

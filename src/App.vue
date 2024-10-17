@@ -111,7 +111,7 @@ function placeWord(e) {
   selectedWord.value.y = ((e.clientY - rect.top) / rect.height) * 100
 }
 
-let boardComplete = computed(() => words.value.every((word) => word.placed))
+let boardSolved = computed(() => words.value.every((word) => word.placed))
 
 function tossWord(e) {
   if (!selectedWord.value) return
@@ -130,7 +130,7 @@ function tossWord(e) {
     setTimeout(async function () {
       selectedWord.value = null
       dragoverCategory.value = null
-      if (boardComplete.value) {
+      if (boardSolved.value) {
         await nextTick()
         alert(`You won with ${incorrectNum.value} mistakes! 🎉`)
       }
@@ -164,7 +164,7 @@ let dragoverCategory = ref(null)
     </span>
     <main
       class="board"
-      :class="{ complete: boardComplete }"
+      :class="{ solved: boardSolved }"
       @click="placeWord"
       ref="board-el"
       @drop.stop="tossWord"
@@ -239,15 +239,15 @@ let dragoverCategory = ref(null)
         <ol reversed>
           <li>
             (outer circle, 3 words)
-            <span class="hint" v-if="incorrectNum > 2">{{ categories[3] }}</span>
+            <span class="hint" v-if="incorrectNum > 2 || boardSolved">{{ categories[3] }}</span>
           </li>
           <li>
             (middle circle 2 words)
-            <span class="hint" v-if="incorrectNum > 0">{{ categories[2] }}</span>
+            <span class="hint" v-if="incorrectNum > 0 || boardSolved">{{ categories[2] }}</span>
           </li>
           <li>
             (inner circle, 1 word)
-            <span class="hint" v-if="incorrectNum > 1">{{ categories[1] }}</span>
+            <span class="hint" v-if="incorrectNum > 1 || boardSolved">{{ categories[1] }}</span>
           </li>
         </ol>
       </div>
@@ -339,7 +339,7 @@ let dragoverCategory = ref(null)
   }
 
   &.dragover,
-  .board.complete & {
+  .board.solved & {
     background: var(--active-bg-color);
   }
 }

@@ -14,6 +14,12 @@ const RIPPLES = [
     'and', // outlier
   ],
   [
+    ['three letter body parts', 'arm', 'eye', 'toe'],
+    ['talk, with sauce', 'jaw', 'lip'],
+    ['food, with sauce', 'rib'],
+    'knee',
+  ],
+  [
     ['onomatopoeia', 'moo', 'splash', 'burp'],
     ['website verbs', 'tweet', 'yelp'],
     ['lose it', 'snap'],
@@ -24,6 +30,12 @@ const RIPPLES = [
     ['creepy movies with The', 'fly', 'crow'],
     ['cafeteria chant', 'fight'],
     'bat',
+  ],
+  [
+    ['what a superhero might be known for', 'telepathy', 'invisibility', 'shapeshifting'],
+    ['possible response to danger', 'flying', ' fighting'],
+    ['concern for a zoom meeting', 'freezing'],
+    'melting',
   ],
 ]
 

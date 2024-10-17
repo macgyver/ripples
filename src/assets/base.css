@@ -1,14 +1,14 @@
 /* color palette from <https://github.com/vuejs/theme> */
 :root {
-  --bg-color: white;
-  --fg-color: black;
+  --bg-color: #eee;
+  --fg-color: #111;
   --accent-color: midnightblue;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg-color: black;
-    --fg-color: white;
+    --bg-color: #111;
+    --fg-color: #eee;
     --accent-color: hsl(193.3, 100%, 55%);
   }
 }

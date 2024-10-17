@@ -25,12 +25,6 @@ const RIPPLES = [
     ['cafeteria chant', 'fight'],
     'bat',
   ],
-  [
-    ['objects on the road', 'driver', 'wheels', 'brakes'],
-    ['coke', 'bump', 'lines'],
-    ['Vin’s need', 'speed'],
-    'bound',
-  ],
 ]
 
 // Day Five

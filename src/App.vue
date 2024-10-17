@@ -36,14 +36,15 @@ let url = new URL(location.href)
 let activeDay = ref(Number.parseInt(url.searchParams.get('day')) || 1)
 
 let today = computed(() => ripples[activeDay.value - 1])
-let words = computed(() => today.value.words)
-let categories = computed(() => today.value.categories)
-let incorrectNum = computed(() => today.value.errors)
+let words = computed(() => today.value?.words)
+let categories = computed(() => today.value?.categories)
+let incorrectNum = computed(() => today.value?.errors)
 
 // for help debugging, i can't keep track of all the answers  in my head
 watch(
   words,
   () => {
+    if (!words.value) return
     let groups = toRaw(words.value).reduce((memo, curr) => {
       memo[curr.category] ??= []
       memo[curr.category].push(curr.txt)
@@ -119,8 +120,8 @@ function tossWord(e) {
   console.debug('**toss', toRaw(selectedWord.value), e, selectedRipple, targetRipple)
 
   // i was slightly pleasantly surprised you can compare elements like this
-  if (selectedRipple === boardEl.value) {
-    // place word but do not process any game logic, the word is just being arranged outside the ripples
+  if (![outlierEl.value, outerEl.value, middleEl.value, innerEl.value].includes(selectedRipple)) {
+    // place word but do not process any game logic, the word is just being arranged outside the solution areas
     placeWord(e)
   } else if (targetRipple === selectedRipple) {
     placeWord(e)
@@ -167,7 +168,7 @@ let dragoverCategory = ref(null)
       ref="board-el"
       @drop.stop="tossWord"
       @dragover.prevent
-      @dragenter.prevent="dragoverCategory = null"
+      @dragenter.stop="dragoverCategory = null"
     >
       <div
         tabindex="0"
@@ -178,6 +179,7 @@ let dragoverCategory = ref(null)
         @drop.stop="tossWord"
         @dragover.prevent
         @dragenter.stop="dragoverCategory = 'outer'"
+        @dragleave="dragoverCategory = null"
         aria-label="outer ripple"
       ></div>
       <div
@@ -188,7 +190,7 @@ let dragoverCategory = ref(null)
         @click.stop="tossWord"
         @drop.stop="tossWord"
         @dragover.prevent
-        @dragenter.stop="dragoverCategory = 'middle'"
+        @dragenter.prevent.stop="dragoverCategory = 'middle'"
         aria-label="middle ripple"
       ></div>
       <div
@@ -199,8 +201,8 @@ let dragoverCategory = ref(null)
         @click.stop="tossWord"
         @drop.stop="tossWord"
         @dragover.prevent
-        @dragenter.stop="dragoverCategory = 'inner'"
-        @Keyup.enter="todo"
+        @dragenter.prevent.stop="dragoverCategory = 'inner'"
+        @x-keyup.enter="todo"
         aria-label="inner ripple"
       ></div>
       <button
@@ -230,7 +232,8 @@ let dragoverCategory = ref(null)
           @drop.stop="tossWord"
           @dragover.prevent
           @dragenter.stop="dragoverCategory = 'outlier'"
-          @keyup.enter="todo"
+          @dragleave.stop="dragoverCategory = null"
+          @x-keyup.enter="todo"
           aria-label="outlier area"
         ></div>
         <ol reversed>
@@ -276,9 +279,17 @@ let dragoverCategory = ref(null)
   top: 0;
   left: 0;
   z-index: 1;
+
+  @media (min-aspect-ratio: 1.08/1) {
+    flex-direction: column;
+  }
 }
 
 .container {
+  background: white;
+  @media (prefers-color-scheme: dark) {
+    background: black;
+  }
   display: flex;
   flex-direction: column;
   place-content: center;
@@ -286,6 +297,7 @@ let dragoverCategory = ref(null)
 }
 
 .board {
+  background: var(--bg-color);
   margin: auto;
   // background: lightgray;
   position: relative;

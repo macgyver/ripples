@@ -42,4 +42,6 @@ npm run lint
 
 ## todo
 
-- [] unhighlight ripples when switching between days
+- [ ] unhighlight ripples when switching between days
+- [x] indicate safe dropping area for words with different color
+- [x] fix "error" when dropping words onto other words

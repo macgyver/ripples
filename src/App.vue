@@ -286,14 +286,15 @@ let dragoverCategory = ref(null)
 }
 
 .container {
-  background: white;
-  @media (prefers-color-scheme: dark) {
-    background: black;
-  }
   display: flex;
   flex-direction: column;
   place-content: center;
   min-height: 100vh;
+  background: white;
+
+  @media (prefers-color-scheme: dark) {
+    background: black;
+  }
 }
 
 .board {
